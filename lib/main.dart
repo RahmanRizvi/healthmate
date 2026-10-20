@@ -3,8 +3,10 @@ import 'package:provider/provider.dart';
 import 'core/constants/app_colors.dart';
 import 'core/theme/app_theme.dart';
 import 'data/database/app_database.dart';
+import 'data/repositories/health_record_repository.dart';
 import 'data/repositories/onboarding_repository.dart';
 import 'domain/services/bmi_service.dart';
+import 'domain/services/health_record_service.dart';
 import 'domain/services/onboarding_service.dart';
 import 'presentation/dashboard/views/dashboard_screen.dart';
 import 'presentation/onboarding/views/bmi_analysis_screen.dart';
@@ -20,11 +22,13 @@ void main() async {
 /// Root widget of the HealthMate application.
 class HealthMateApp extends StatelessWidget {
   final OnboardingService? onboardingService;
+  final HealthRecordService? recordService;
   final Widget? home;
 
   const HealthMateApp({
     super.key,
     this.onboardingService,
+    this.recordService,
     this.home,
   });
 
@@ -45,6 +49,13 @@ class HealthMateApp extends StatelessWidget {
         ),
         Provider<BmiService>(
           create: (_) => BmiService(),
+        ),
+        ProxyProvider<AppDatabase, IHealthRecordRepository>(
+          update: (context, db, previous) => HealthRecordRepository(db: db),
+        ),
+        ProxyProvider<IHealthRecordRepository, HealthRecordService>(
+          update: (context, repo, previous) =>
+              recordService ?? HealthRecordService(repository: repo),
         ),
       ],
       child: MaterialApp(

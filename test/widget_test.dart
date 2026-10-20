@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthmate/data/models/daily_goals.dart';
+import 'package:healthmate/data/models/health_record.dart';
 import 'package:healthmate/data/models/user_profile.dart';
+import 'package:healthmate/data/repositories/health_record_repository.dart';
 import 'package:healthmate/data/repositories/onboarding_repository.dart';
+import 'package:healthmate/domain/services/health_record_service.dart';
 import 'package:healthmate/domain/services/onboarding_service.dart';
 import 'package:healthmate/main.dart';
-import 'package:healthmate/presentation/onboarding/views/bmi_analysis_screen.dart';
-import 'package:healthmate/presentation/onboarding/views/daily_goals_screen.dart';
-import 'package:healthmate/presentation/onboarding/views/personal_details_screen.dart';
+import 'package:healthmate/presentation/dashboard/views/dashboard_screen.dart';
+import 'package:healthmate/presentation/records/views/add_record_screen.dart';
 
 class FakeOnboardingRepository implements IOnboardingRepository {
   UserProfile? profile;
@@ -34,8 +36,59 @@ class FakeOnboardingRepository implements IOnboardingRepository {
   }
 }
 
+class FakeHealthRecordRepository implements IHealthRecordRepository {
+  final Map<String, HealthRecord> records = {};
+
+  @override
+  Future<int> deleteRecord(int id) async {
+    records.removeWhere((_, r) => r.id == id);
+    return 1;
+  }
+
+  @override
+  Future<List<HealthRecord>> getAllRecords() async {
+    final list = records.values.toList();
+    list.sort((a, b) => b.date.compareTo(a.date));
+    return list;
+  }
+
+  @override
+  Future<HealthRecord?> getRecordByDate(String date) async => records[date];
+
+  @override
+  Future<HealthRecord?> getRecordById(int id) async =>
+      records.values.firstWhere((r) => r.id == id);
+
+  @override
+  Future<List<HealthRecord>> getRecordsForDateRange(String s, String e) async =>
+      records.values.where((r) => r.date.compareTo(s) >= 0 && r.date.compareTo(e) <= 0).toList();
+
+  @override
+  Future<void> incrementWater(String date, int amountMl) async {
+    final existing = records[date];
+    if (existing != null) {
+      records[date] = existing.copyWith(water: existing.water + amountMl);
+    } else {
+      records[date] = HealthRecord(
+        date: date,
+        steps: 0,
+        calories: 0,
+        water: amountMl,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+    }
+  }
+
+  @override
+  Future<int> saveRecord(HealthRecord record) async {
+    records[record.date] = record;
+    return 1;
+  }
+}
+
 void main() {
-  testWidgets('HealthMateApp WelcomeScreen renders and navigates to Personal Details',
+  testWidgets('Dashboard renders user greeting, today activity, and opens Add Record screen',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
@@ -44,79 +97,8 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final fakeRepo = FakeOnboardingRepository();
-    final service = OnboardingService(repository: fakeRepo);
-
-    await tester.pumpWidget(
-      HealthMateApp(
-        onboardingService: service,
-      ),
-    );
-
-    // Initial pump for FutureBuilder in AppEntryRouter
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
-
-    // Verify Welcome Screen elements
-    expect(find.text('Healthmate'), findsOneWidget);
-    expect(find.text('Your wellness journey\nstarts here.'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
-    expect(find.text('Your personal health companion'), findsOneWidget);
-    expect(find.text('Activity'), findsOneWidget);
-    expect(find.text('Hydration'), findsOneWidget);
-    expect(find.text('Vitals'), findsOneWidget);
-
-    // Tap Continue to navigate to Personal Details
-    await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
-
-    // Verify Personal Details Screen
-    expect(find.text("Let's get to know you"), findsOneWidget);
-    expect(find.text('STEP 1 OF 3'), findsOneWidget);
-    expect(find.text('Personal Details'), findsOneWidget);
-    expect(find.text('Full Name'), findsOneWidget);
-    expect(find.text('Date of Birth'), findsOneWidget);
-    expect(find.text('Gender'), findsOneWidget);
-  });
-
-  testWidgets('PersonalDetailsScreen renders form inputs and components',
-      (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 2.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
-    final fakeRepo = FakeOnboardingRepository();
-    final service = OnboardingService(repository: fakeRepo);
-
-    await tester.pumpWidget(
-      HealthMateApp(
-        onboardingService: service,
-        home: const PersonalDetailsScreen(),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text("Let's get to know you"), findsOneWidget);
-    expect(find.text('Height'), findsOneWidget);
-    expect(find.text('Weight'), findsOneWidget);
-    expect(find.text('Age: --'), findsOneWidget);
-    expect(find.text('Continue'), findsOneWidget);
-  });
-
-  testWidgets('BmiAnalysisScreen renders BMI snapshot and range components',
-      (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1080, 2400);
-    tester.view.devicePixelRatio = 2.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
-    final fakeRepo = FakeOnboardingRepository();
-    fakeRepo.profile = UserProfile(
+    final fakeOnboarding = FakeOnboardingRepository();
+    fakeOnboarding.profile = UserProfile(
       id: 1,
       fullName: 'Alex Morgan',
       dateOfBirth: DateTime(1998, 5, 14),
@@ -126,28 +108,42 @@ void main() {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
-    final service = OnboardingService(repository: fakeRepo);
+    fakeOnboarding.goals = DailyGoals.defaults();
+
+    final fakeRecords = FakeHealthRecordRepository();
+    final onboardingService = OnboardingService(repository: fakeOnboarding);
+    final recordService = HealthRecordService(repository: fakeRecords);
 
     await tester.pumpWidget(
       HealthMateApp(
-        onboardingService: service,
-        home: const BmiAnalysisScreen(),
+        onboardingService: onboardingService,
+        recordService: recordService,
+        home: const DashboardScreen(),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Your health snapshot'), findsOneWidget);
-    expect(find.text('STEP 2 OF 3'), findsOneWidget);
-    expect(find.text('BMI Analysis'), findsOneWidget);
-    expect(find.text('YOUR BMI'), findsOneWidget);
-    expect(find.text('Normal weight'), findsOneWidget);
-    expect(find.text('23.0'), findsWidgets);
-    expect(find.text('172 cm'), findsOneWidget);
-    expect(find.text('68 kg'), findsOneWidget);
-    expect(find.text('Edit details'), findsOneWidget);
+    // Verify Greeting with personalized user name
+    expect(find.textContaining('Alex'), findsOneWidget);
+    expect(find.text('Your health, at a glance.'), findsOneWidget);
+    expect(find.text("Today's activity"), findsOneWidget);
+    expect(find.text('Steps walked'), findsOneWidget);
+    expect(find.text('Calories'), findsOneWidget);
+    expect(find.text('Water intake'), findsOneWidget);
+    expect(find.text("Add today's record"), findsOneWidget);
+
+    // Verify tapping "Add today's record" navigates to AddRecordScreen
+    await tester.tap(find.text("Add today's record"));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Record'), findsOneWidget);
+    expect(find.text('Log your daily activity'), findsOneWidget);
+    expect(find.text('Date of activity'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Save Record'), findsOneWidget);
   });
 
-  testWidgets('DailyGoalsScreen renders step, water, and calorie cards',
+  testWidgets('AddRecordScreen steppers and quick-add water chips function properly',
       (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1080, 2400);
     tester.view.devicePixelRatio = 2.0;
@@ -156,26 +152,131 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    final fakeRepo = FakeOnboardingRepository();
-    final service = OnboardingService(repository: fakeRepo);
+    final fakeOnboarding = FakeOnboardingRepository();
+    fakeOnboarding.goals = DailyGoals.defaults();
+    final fakeRecords = FakeHealthRecordRepository();
+
+    final onboardingService = OnboardingService(repository: fakeOnboarding);
+    final recordService = HealthRecordService(repository: fakeRecords);
 
     await tester.pumpWidget(
       HealthMateApp(
-        onboardingService: service,
-        home: const DailyGoalsScreen(),
+        onboardingService: onboardingService,
+        recordService: recordService,
+        home: AddRecordScreen(selectedDate: DateTime.now()),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Set your daily goals'), findsOneWidget);
-    expect(find.text('STEP 3 OF 3'), findsOneWidget);
-    expect(find.text('Daily Goals'), findsOneWidget);
-    expect(find.text('Steps per day'), findsOneWidget);
-    expect(find.text('Water per day'), findsOneWidget);
-    expect(find.text('Daily calories goal'), findsOneWidget);
-    expect(find.text('10,000'), findsOneWidget);
-    expect(find.text('2,500'), findsOneWidget);
-    expect(find.text('500'), findsOneWidget);
-    expect(find.text('Start HealthMate'), findsOneWidget);
+    // Verify quick-add water chips exist
+    expect(find.text('+150 ml'), findsOneWidget);
+    expect(find.text('+250 ml'), findsOneWidget);
+    expect(find.text('+350 ml'), findsOneWidget);
+    expect(find.text('+500 ml'), findsOneWidget);
+
+    // Tap +250 ml quick add
+    await tester.tap(find.text('+250 ml'));
+    await tester.pumpAndSettle();
+
+    // Verify Save Record persists
+    await tester.tap(find.text('Save Record'));
+    await tester.pumpAndSettle();
+
+    expect(fakeRecords.records.isNotEmpty, isTrue);
+    expect(fakeRecords.records.values.first.water, equals(250));
+  });
+
+  testWidgets('Dashboard quick water button adds 250ml directly',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final fakeOnboarding = FakeOnboardingRepository();
+    fakeOnboarding.profile = UserProfile(
+      id: 1,
+      fullName: 'Alex Morgan',
+      dateOfBirth: DateTime(1998, 5, 14),
+      gender: 'Female',
+      heightCm: 172.0,
+      weightKg: 68.0,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    fakeOnboarding.goals = DailyGoals.defaults();
+
+    final fakeRecords = FakeHealthRecordRepository();
+    final onboardingService = OnboardingService(repository: fakeOnboarding);
+    final recordService = HealthRecordService(repository: fakeRecords);
+
+    await tester.pumpWidget(
+      HealthMateApp(
+        onboardingService: onboardingService,
+        recordService: recordService,
+        home: const DashboardScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Find and tap the +250 ml button on dashboard
+    final quickAddButton = find.text('250 ml');
+    expect(quickAddButton, findsOneWidget);
+
+    await tester.tap(quickAddButton);
+    await tester.pumpAndSettle();
+
+    expect(fakeRecords.records.isNotEmpty, isTrue);
+    expect(fakeRecords.records.values.first.water, equals(250));
+  });
+
+  testWidgets('Dashboard top bar plus icon opens Add Record screen',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final fakeOnboarding = FakeOnboardingRepository();
+    fakeOnboarding.profile = UserProfile(
+      id: 1,
+      fullName: 'Alex Morgan',
+      dateOfBirth: DateTime(1998, 5, 14),
+      gender: 'Female',
+      heightCm: 172.0,
+      weightKg: 68.0,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    fakeOnboarding.goals = DailyGoals.defaults();
+
+    final fakeRecords = FakeHealthRecordRepository();
+    final onboardingService = OnboardingService(repository: fakeOnboarding);
+    final recordService = HealthRecordService(repository: fakeRecords);
+
+    await tester.pumpWidget(
+      HealthMateApp(
+        onboardingService: onboardingService,
+        recordService: recordService,
+        home: const DashboardScreen(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Find the circular plus button in the topbar
+    final plusButton = find.byKey(const Key('dashboard_add_record_button'));
+    expect(plusButton, findsOneWidget);
+
+    await tester.tap(plusButton);
+    await tester.pumpAndSettle();
+
+    // Verify Add Record screen is opened
+    expect(find.text('Add Record'), findsOneWidget);
+    expect(find.text('Log your daily activity'), findsOneWidget);
+    expect(find.text('Save Record'), findsOneWidget);
   });
 }

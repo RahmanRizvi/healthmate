@@ -147,7 +147,9 @@ class DailyGoalsScreen extends StatelessWidget {
 
                           Navigator.of(context).pushAndRemoveUntil(
                             MaterialPageRoute(
-                              builder: (_) => const DashboardScreen(),
+                              builder: (_) => const DashboardScreen(
+                                isJustCompletedOnboarding: true,
+                              ),
                             ),
                             (route) => false,
                           );
