@@ -6,6 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/widgets/bottom_navigation.dart';
 import '../../../core/widgets/healthmate_header.dart';
+import '../../../data/models/health_record.dart';
 import '../../../domain/services/health_record_service.dart';
 import '../../../domain/services/onboarding_service.dart';
 import '../../progress/views/progress_screen.dart';
@@ -15,11 +16,17 @@ import '../viewmodels/add_record_viewmodel.dart';
 /// Screen 3: Add/Edit Record screen matching the Figma design.
 class AddRecordScreen extends StatefulWidget {
   final DateTime selectedDate;
+  final HealthRecord? initialRecord;
+  final int? initialRecordId;
+  final bool isEditMode;
   final AddRecordViewModel? viewModel;
 
   const AddRecordScreen({
     super.key,
     required this.selectedDate,
+    this.initialRecord,
+    this.initialRecordId,
+    this.isEditMode = false,
     this.viewModel,
   });
 
@@ -123,20 +130,23 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           widget.viewModel ??
           AddRecordViewModel(
             initialDate: widget.selectedDate,
+            initialRecord: widget.initialRecord,
+            initialRecordId: widget.initialRecordId,
+            isEditMode: widget.isEditMode,
             recordService: ctx.read<HealthRecordService>(),
             onboardingService: ctx.read<OnboardingService>(),
           ),
-      child: Scaffold(
-        backgroundColor: AppColors.scaffoldBackground,
-        appBar: HealthMateHeader.detail(
-          title: 'Add Record',
-          onBackPressed: () => _handleCancel(context),
-        ),
-        body: Consumer<AddRecordViewModel>(
-          builder: (context, vm, _) {
-            _syncControllers(vm);
+      child: Consumer<AddRecordViewModel>(
+        builder: (context, vm, _) {
+          _syncControllers(vm);
 
-            return SafeArea(
+          return Scaffold(
+            backgroundColor: AppColors.scaffoldBackground,
+            appBar: HealthMateHeader.detail(
+              title: vm.screenTitle,
+              onBackPressed: () => _handleCancel(context),
+            ),
+            body: SafeArea(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
                 padding: const EdgeInsets.symmetric(horizontal: 20.0),
@@ -146,9 +156,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                     const SizedBox(height: 12),
 
                     // Main Heading
-                    const Text(
-                      'Log your daily activity',
-                      style: TextStyle(
+                    Text(
+                      vm.headingText,
+                      style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w800,
                         color: AppColors.primaryDark,
@@ -188,13 +198,13 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                   ],
                 ),
               ),
-            );
-          },
-        ),
-        bottomNavigationBar: HealthMateBottomNavigation(
-          currentIndex: 1,
-          onTap: (index) => _onBottomNavTap(context, index),
-        ),
+            ),
+            bottomNavigationBar: HealthMateBottomNavigation(
+              currentIndex: 1,
+              onTap: (index) => _onBottomNavTap(context, index),
+            ),
+          );
+        },
       ),
     );
   }
@@ -856,10 +866,10 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
 
                       if (success) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Record saved successfully!'),
+                          SnackBar(
+                            content: Text(vm.successMessage),
                             backgroundColor: AppColors.primary,
-                            duration: Duration(seconds: 2),
+                            duration: const Duration(seconds: 2),
                           ),
                         );
                         Navigator.of(context).pop(true);
@@ -886,7 +896,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       size: 19,
                     ),
               label: Text(
-                vm.isSaving ? 'Saving...' : 'Save Record',
+                vm.isSaving ? vm.savingButtonLabel : vm.submitButtonLabel,
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,

@@ -77,9 +77,19 @@ class HealthRecordService {
     return await _repository.getAllRecords();
   }
 
+  /// Retrieves health record by ID.
+  Future<HealthRecord?> getRecordById(int id) async {
+    return await _repository.getRecordById(id);
+  }
+
   /// Saves or updates a health record for its specified date.
   Future<int> saveRecord(HealthRecord record) async {
     return await _repository.saveRecord(record);
+  }
+
+  /// Updates an existing health record by its unique ID.
+  Future<int> updateRecord(HealthRecord record) async {
+    return await _repository.updateRecord(record);
   }
 
   /// Deletes a health record by its unique ID.
@@ -94,24 +104,78 @@ class HealthRecordService {
     await _repository.incrementWater(dateStr, amountMl);
   }
 
+  /// Checks if all 3 daily goals (steps, calories, water) are met.
+  bool isAllGoalsMet(HealthRecord record, DailyGoals goals) {
+    final metSteps = goals.stepsGoal > 0 && record.steps >= goals.stepsGoal;
+    final metCalories = goals.caloriesGoalKcal > 0 && record.calories >= goals.caloriesGoalKcal;
+    final metWater = goals.waterGoalMl > 0 && record.water >= goals.waterGoalMl;
+    return metSteps && metCalories && metWater;
+  }
+
+  /// Counts how many of the 3 goals are achieved (0, 1, 2, or 3).
+  int countGoalsMet(HealthRecord record, DailyGoals goals) {
+    int count = 0;
+    if (goals.stepsGoal > 0 && record.steps >= goals.stepsGoal) count++;
+    if (goals.caloriesGoalKcal > 0 && record.calories >= goals.caloriesGoalKcal) count++;
+    if (goals.waterGoalMl > 0 && record.water >= goals.waterGoalMl) count++;
+    return count;
+  }
+
+  /// Calculates overall progress percentage as the arithmetic mean of the three capped ratios.
+  double calculateOverallProgressPercentage(HealthRecord record, DailyGoals goals) {
+    final stepsRatio = goals.stepsGoal > 0
+        ? (record.steps / goals.stepsGoal).clamp(0.0, 1.0)
+        : 0.0;
+    final caloriesRatio = goals.caloriesGoalKcal > 0
+        ? (record.calories / goals.caloriesGoalKcal).clamp(0.0, 1.0)
+        : 0.0;
+    final waterRatio = goals.waterGoalMl > 0
+        ? (record.water / goals.waterGoalMl).clamp(0.0, 1.0)
+        : 0.0;
+
+    final mean = (stepsRatio + caloriesRatio + waterRatio) / 3.0;
+    return mean * 100.0;
+  }
+
   /// Evaluates goal completion status for a health record.
   RecordGoalStatus evaluateGoalStatus(HealthRecord record, DailyGoals goals) {
     if (record.steps <= 0 && record.calories <= 0 && record.water <= 0) {
       return RecordGoalStatus.none;
     }
 
-    // Goal met if steps target is achieved or at least 2 out of 3 targets reached
-    final metSteps = record.steps >= goals.stepsGoal;
-    final metCalories = record.calories >= goals.caloriesGoalKcal;
-    final metWater = record.water >= goals.waterGoalMl;
+    final metSteps = goals.stepsGoal > 0 && record.steps >= goals.stepsGoal;
+    final metCalories = goals.caloriesGoalKcal > 0 && record.calories >= goals.caloriesGoalKcal;
+    final metWater = goals.waterGoalMl > 0 && record.water >= goals.waterGoalMl;
 
-    int metCount = (metSteps ? 1 : 0) + (metCalories ? 1 : 0) + (metWater ? 1 : 0);
+    final metCount = (metSteps ? 1 : 0) + (metCalories ? 1 : 0) + (metWater ? 1 : 0);
 
     if (metSteps || metCount >= 2) {
       return RecordGoalStatus.goalMet;
     }
 
     return RecordGoalStatus.partial;
+  }
+
+  /// Calculates the average steps across a list of records safely.
+  int calculateAverageSteps(List<HealthRecord> records) {
+    if (records.isEmpty) return 0;
+    final total = records.fold<int>(0, (sum, r) => sum + r.steps);
+    return (total / records.length).round();
+  }
+
+  /// Calculates the total water intake in Litres across a list of records.
+  double calculateTotalWaterLitres(List<HealthRecord> records) {
+    if (records.isEmpty) return 0.0;
+    final totalMl = records.fold<int>(0, (sum, r) => sum + r.water);
+    return totalMl / 1000.0;
+  }
+
+  /// Formats water in Litres: e.g. `28.5L` or `0L`.
+  String formatWaterLitres(double litres) {
+    if (litres == litres.roundToDouble()) {
+      return '${litres.toInt()}L';
+    }
+    return '${litres.toStringAsFixed(1)}L';
   }
 
   /// Calculates weekly chart points (Monday through Sunday) and average steps.

@@ -45,4 +45,18 @@ class AppColors {
   static const Color statusSuccess = Color(0xFF047857);
   static const Color statusSuccessBg = Color(0xFFD1FAE5);
   static const Color lockIcon = Color(0xFF047857);
+
+  // Dark Mode Tokens
+  static const Color scaffoldBackgroundDark = Color(0xFF0B1412);
+  static const Color cardBackgroundDark = Color(0xFF14211D);
+  static const Color cardElevatedDark = Color(0xFF1A2A25);
+  static const Color inputBackgroundDark = Color(0xFF111D1A);
+  static const Color borderDark = Color(0xFF233933);
+  static const Color borderLightDark = Color(0xFF1D302B);
+  static const Color textPrimaryDark = Color(0xFFF1F5F9);
+  static const Color textSecondaryDark = Color(0xFF94A3B8);
+  static const Color textMutedDark = Color(0xFF64748B);
+  static const Color pillBackgroundDark = Color(0xFF1C2F2A);
+  static const Color segmentedBackgroundDark = Color(0xFF162420);
+  static const Color infoBannerBackgroundDark = Color(0xFF14211E);
 }

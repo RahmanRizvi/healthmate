@@ -49,6 +49,11 @@ class MockRecordRepo implements IHealthRecordRepository {
     saved = record;
     return 1;
   }
+  @override
+  Future<int> updateRecord(HealthRecord record) async {
+    saved = record;
+    return 1;
+  }
 }
 
 void main() {

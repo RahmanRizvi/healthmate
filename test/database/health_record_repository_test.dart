@@ -141,5 +141,43 @@ void main() {
       final check = await repository.getRecordById(id);
       expect(check, isNull);
     });
+
+    test('updateRecord updates existing record by ID without duplication', () async {
+      final createdTime = DateTime(2026, 10, 24, 10, 0);
+      final original = HealthRecord(
+        date: '2026-10-24',
+        steps: 5000,
+        calories: 250,
+        water: 1200,
+        createdAt: createdTime,
+        updatedAt: createdTime,
+      );
+      final id = await repository.saveRecord(original);
+
+      final updatedTime = DateTime(2026, 10, 24, 12, 30);
+      final updated = HealthRecord(
+        id: id,
+        date: '2026-10-24',
+        steps: 8000,
+        calories: 450,
+        water: 2000,
+        createdAt: createdTime,
+        updatedAt: updatedTime,
+      );
+
+      final updateResult = await repository.updateRecord(updated);
+      expect(updateResult, equals(1));
+
+      final all = await repository.getAllRecords();
+      expect(all.length, equals(1));
+
+      final retrieved = await repository.getRecordById(id);
+      expect(retrieved, isNotNull);
+      expect(retrieved!.id, equals(id));
+      expect(retrieved.steps, equals(8000));
+      expect(retrieved.calories, equals(450));
+      expect(retrieved.water, equals(2000));
+      expect(retrieved.createdAt, equals(createdTime));
+    });
   });
 }

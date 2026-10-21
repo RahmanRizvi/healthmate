@@ -62,6 +62,12 @@ class MockHealthRecordRepository implements IHealthRecordRepository {
     _recordsByDate[record.date] = record;
     return 1;
   }
+
+  @override
+  Future<int> updateRecord(HealthRecord record) async {
+    _recordsByDate[record.date] = record;
+    return 1;
+  }
 }
 
 void main() {

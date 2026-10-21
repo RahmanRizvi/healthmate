@@ -55,6 +55,13 @@ class DashboardViewModel extends ChangeNotifier {
 
   String get userName {
     if (_profile != null && _profile!.fullName.trim().isNotEmpty) {
+      return _profile!.fullName.trim();
+    }
+    return 'Alex';
+  }
+
+  String get firstName {
+    if (_profile != null && _profile!.fullName.trim().isNotEmpty) {
       return _profile!.fullName.trim().split(' ').first;
     }
     return 'Alex';

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/preferences/app_preferences.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/widgets/goal_stepper_card.dart';
 import '../../../core/widgets/healthmate_header.dart';
 import '../../../core/widgets/onboarding_progress.dart';
@@ -137,6 +139,32 @@ class DailyGoalsScreen extends StatelessWidget {
                         if (!context.mounted) return;
 
                         if (success) {
+                          // Prompt for notification permission on Android 13+ / iOS
+                          try {
+                            final notifService =
+                                Provider.of<NotificationService?>(context, listen: false);
+                            final prefs =
+                                Provider.of<AppPreferences?>(context, listen: false);
+                            if (notifService != null &&
+                                prefs != null &&
+                                prefs.dailyRemindersEnabled) {
+                              final granted = await notifService.requestPermissions();
+                              if (granted) {
+                                await notifService.scheduleDailyReminder(
+                                  hour: prefs.reminderHour,
+                                  minute: prefs.reminderMinute,
+                                );
+                              } else {
+                                await prefs.setDailyRemindersEnabled(false);
+                                await prefs.setWeeklyDigestEnabled(false);
+                              }
+                            }
+                          } catch (e) {
+                            debugPrint('Onboarding notification permission error: $e');
+                          }
+
+                          if (!context.mounted) return;
+
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Welcome to HealthMate!'),

@@ -63,6 +63,32 @@ class DateFormatter {
     return '$weekday, $monthDay';
   }
 
+  /// Formats date for record cards and details header: e.g. `24 October 2026`.
+  static String formatFullDate(DateTime date) {
+    return DateFormat('d MMMM yyyy').format(date);
+  }
+
+  /// Formats weekday name: e.g. `Saturday`.
+  static String formatWeekday(DateTime date) {
+    return DateFormat('EEEE').format(date);
+  }
+
+  /// Formats timestamp for record creation metadata: e.g. `Recorded on 24 Oct 2026 at 20:45`.
+  static String formatRecordedAt(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final formatted = DateFormat('d MMM yyyy').format(local);
+    final time = DateFormat('HH:mm').format(local);
+    return 'Recorded on $formatted at $time';
+  }
+
+  /// Formats timestamp for record update metadata: e.g. `Last updated 24 Oct 2026, 21:12`.
+  static String formatLastUpdated(DateTime dateTime) {
+    final local = dateTime.toLocal();
+    final formatted = DateFormat('d MMM yyyy').format(local);
+    final time = DateFormat('HH:mm').format(local);
+    return 'Last updated $formatted, $time';
+  }
+
   /// Checks if two [DateTime] instances fall on the same calendar day.
   static bool isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;

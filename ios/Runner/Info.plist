@@ -65,6 +65,9 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>HealthMate needs permission to save progress report images to your Photos gallery.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>HealthMate needs permission to access your Photos library to save progress report images.</string>
 </dict>
 </plist>

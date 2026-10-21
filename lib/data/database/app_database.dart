@@ -166,6 +166,20 @@ class AppDatabase {
     );
   }
 
+  /// Updates an existing health record by its unique ID.
+  Future<int> updateHealthRecord(HealthRecord record) async {
+    final db = await database;
+    if (record.id == null) {
+      return await saveHealthRecord(record);
+    }
+    return await db.update(
+      tableHealthRecords,
+      record.toMap(),
+      where: 'id = ?',
+      whereArgs: [record.id],
+    );
+  }
+
   /// Retrieves a health record by its unique ID.
   Future<HealthRecord?> getHealthRecordById(int id) async {
     final db = await database;

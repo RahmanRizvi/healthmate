@@ -8,6 +8,7 @@ abstract class IHealthRecordRepository {
   Future<List<HealthRecord>> getAllRecords();
   Future<List<HealthRecord>> getRecordsForDateRange(String startDate, String endDate);
   Future<int> saveRecord(HealthRecord record);
+  Future<int> updateRecord(HealthRecord record);
   Future<int> deleteRecord(int id);
   Future<void> incrementWater(String date, int amountMl);
 }
@@ -43,6 +44,11 @@ class HealthRecordRepository implements IHealthRecordRepository {
   @override
   Future<int> saveRecord(HealthRecord record) async {
     return await _db.saveHealthRecord(record);
+  }
+
+  @override
+  Future<int> updateRecord(HealthRecord record) async {
+    return await _db.updateHealthRecord(record);
   }
 
   @override

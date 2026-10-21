@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
+import '../../../core/preferences/app_preferences.dart';
+import '../../../core/services/notification_service.dart';
 import '../../../core/widgets/activity_progress_card.dart';
 import '../../../core/widgets/bottom_navigation.dart';
 import '../../../core/widgets/healthmate_header.dart';
@@ -16,7 +19,7 @@ import '../../settings/views/settings_screen.dart';
 import '../viewmodels/dashboard_viewmodel.dart';
 
 /// Main HealthMate Dashboard Screen matching Figma screenshots 1 and 2.
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   final DashboardViewModel? viewModel;
   final bool isJustCompletedOnboarding;
 
@@ -26,6 +29,40 @@ class DashboardScreen extends StatelessWidget {
     this.isJustCompletedOnboarding = false,
   });
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkInitialNotificationPermission();
+    });
+  }
+
+  Future<void> _checkInitialNotificationPermission() async {
+    try {
+      final prefs = Provider.of<AppPreferences?>(context, listen: false);
+      final notifService = Provider.of<NotificationService?>(
+        context,
+        listen: false,
+      );
+      if (prefs != null &&
+          notifService != null &&
+          prefs.dailyRemindersEnabled) {
+        final granted = await notifService.requestPermissions();
+        if (!granted) {
+          await prefs.setDailyRemindersEnabled(false);
+          await prefs.setWeeklyDigestEnabled(false);
+        }
+      }
+    } catch (e) {
+      debugPrint('Initial notification permission check error: $e');
+    }
+  }
+
   Future<void> _navigateToAddRecord(
     BuildContext context,
     DashboardViewModel vm, {
@@ -33,9 +70,8 @@ class DashboardScreen extends StatelessWidget {
   }) async {
     final result = await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => AddRecordScreen(
-          selectedDate: initialDate ?? DateTime.now(),
-        ),
+        builder: (_) =>
+            AddRecordScreen(selectedDate: initialDate ?? DateTime.now()),
       ),
     );
 
@@ -44,7 +80,11 @@ class DashboardScreen extends StatelessWidget {
     }
   }
 
-  void _onBottomNavTap(BuildContext context, int index) {
+  Future<void> _onBottomNavTap(
+    BuildContext context,
+    DashboardViewModel vm,
+    int index,
+  ) async {
     if (index == 0) return; // already on Home
 
     Widget screen;
@@ -62,16 +102,16 @@ class DashboardScreen extends StatelessWidget {
         return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+
+    await vm.loadDashboard();
   }
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (ctx) =>
-          viewModel ??
+          widget.viewModel ??
           DashboardViewModel(
             onboardingService: ctx.read<OnboardingService>(),
             recordService: ctx.read<HealthRecordService>(),
@@ -88,160 +128,162 @@ class DashboardScreen extends StatelessWidget {
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : RefreshIndicator(
-              color: AppColors.primary,
-              onRefresh: vm.loadDashboard,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 12),
-
-                    // Greeting Section with Date and Streak Badge
-                    _buildGreetingSection(vm),
-                    const SizedBox(height: 16),
-
-                    // Onboarding "You're all set!" banner (shown only right after onboarding)
-                    if (isJustCompletedOnboarding && !vm.isBannerDismissed) ...[
-                      _buildCalibratedBanner(vm),
-                      const SizedBox(height: 18),
-                    ],
-
-                    // "Today's activity" Header
-                    Row(
-                      children: const [
-                        Icon(
-                          Icons.schedule_rounded,
-                          color: AppColors.primaryDark,
-                          size: 20,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          "Today's activity",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primaryDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Steps Walked Card
-                    StepsActivityCard(
-                      currentSteps: vm.todaySteps,
-                      stepGoal: vm.stepsGoal,
-                      averageSteps: vm.averageSteps,
-                    ),
-                    const SizedBox(height: 14),
-
-                    // 2-Column Row: Calories & Water
-                    Row(
-                      children: [
-                        Expanded(
-                          child: CaloriesActivityCard(
-                            currentCalories: vm.todayCalories,
-                            caloriesGoal: vm.caloriesGoal,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: WaterActivityCard(
-                            currentWaterMl: vm.todayWaterMl,
-                            waterGoalMl: vm.waterGoalMl,
-                            onQuickAdd: () => vm.quickAddWater(250),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-
-                    // "Add today's record" Button
-                    _buildAddTodayButton(context, vm),
-                    const SizedBox(height: 22),
-
-                    // Weekly Activity Chart
-                    if (vm.weeklyData != null)
-                      WeeklyActivityChart(
-                        data: vm.weeklyData!,
-                        onSeeProgress: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const ProgressScreen(),
-                            ),
-                          );
-                        },
+                    color: AppColors.primary,
+                    onRefresh: vm.loadDashboard,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(
+                        parent: BouncingScrollPhysics(),
                       ),
-                    const SizedBox(height: 24),
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 12),
 
-                    // Recent Records Header
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Recent records',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.primaryDark,
-                          ),
-                        ),
-                        InkWell(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const RecordsScreen(),
+                          // Greeting Section with Date and Streak Badge
+                          _buildGreetingSection(vm),
+                          const SizedBox(height: 16),
+
+                          // Onboarding "You're all set!" banner (shown only right after onboarding)
+                          if (widget.isJustCompletedOnboarding &&
+                              !vm.isBannerDismissed) ...[
+                            _buildCalibratedBanner(vm),
+                            const SizedBox(height: 18),
+                          ],
+
+                          // "Today's activity" Header
+                          Row(
+                            children: const [
+                              Icon(
+                                Icons.schedule_rounded,
+                                color: AppColors.primaryDark,
+                                size: 20,
                               ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(4),
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              'See all',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
+                              SizedBox(width: 8),
+                              Text(
+                                "Today's activity",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primaryDark,
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 14),
+
+                          // Steps Walked Card
+                          StepsActivityCard(
+                            currentSteps: vm.todaySteps,
+                            stepGoal: vm.stepsGoal,
+                            averageSteps: vm.averageSteps,
+                          ),
+                          const SizedBox(height: 14),
+
+                          // 2-Column Row: Calories & Water
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CaloriesActivityCard(
+                                  currentCalories: vm.todayCalories,
+                                  caloriesGoal: vm.caloriesGoal,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: WaterActivityCard(
+                                  currentWaterMl: vm.todayWaterMl,
+                                  waterGoalMl: vm.waterGoalMl,
+                                  onQuickAdd: () => vm.quickAddWater(250),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+
+                          // "Add today's record" Button
+                          _buildAddTodayButton(context, vm),
+                          const SizedBox(height: 22),
+
+                          // Weekly Activity Chart
+                          if (vm.weeklyData != null)
+                            WeeklyActivityChart(
+                              data: vm.weeklyData!,
+                              onSeeProgress: () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const ProgressScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                          const SizedBox(height: 24),
+
+                          // Recent Records Header
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Recent records',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () async {
+                                  await Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => const RecordsScreen(),
+                                    ),
+                                  );
+                                  await vm.loadDashboard();
+                                },
+                                borderRadius: BorderRadius.circular(4),
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 4,
+                                  ),
+                                  child: Text(
+                                    'See all',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Recent Records List or Empty State
+                          if (vm.recentRecords.isNotEmpty)
+                            ...vm.recentRecords.map(
+                              (record) => RecentRecordCard(
+                                record: record,
+                                status: vm.getRecordStatus(record),
+                                onTap: () => _navigateToAddRecord(
+                                  context,
+                                  vm,
+                                  initialDate: record.dateTime,
+                                ),
+                              ),
+                            )
+                          else
+                            _buildEmptyStateCard(context, vm),
+
+                          const SizedBox(height: 28),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-
-                    // Recent Records List or Empty State
-                    if (vm.recentRecords.isNotEmpty)
-                      ...vm.recentRecords.map(
-                        (record) => RecentRecordCard(
-                          record: record,
-                          status: vm.getRecordStatus(record),
-                          onTap: () => _navigateToAddRecord(
-                            context,
-                            vm,
-                            initialDate: record.dateTime,
-                          ),
-                        ),
-                      )
-                    else
-                      _buildEmptyStateCard(context, vm),
-
-                    const SizedBox(height: 28),
-                  ],
-                ),
-              ),
-            ),
+                  ),
             bottomNavigationBar: HealthMateBottomNavigation(
               currentIndex: 0,
-              onTap: (index) => _onBottomNavTap(context, index),
+              onTap: (index) => _onBottomNavTap(context, vm, index),
             ),
           );
         },
@@ -282,18 +324,19 @@ class DashboardScreen extends StatelessWidget {
         // Headline & Day Streak Badge
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Text(
-                '${vm.greeting}, ${vm.userName} 👋',
+                '${vm.greeting}, ${vm.userName}',
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   color: AppColors.primaryDark,
                   letterSpacing: -0.5,
+                  height: 1.25,
                 ),
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -440,10 +483,7 @@ class DashboardScreen extends StatelessWidget {
                 SizedBox(width: 8),
                 Text(
                   "Add today's record",
-                  style: TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
@@ -452,10 +492,7 @@ class DashboardScreen extends StatelessWidget {
         const SizedBox(height: 6),
         const Text(
           'Log your steps, active calories, and water balance.',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textSecondary,
-          ),
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
       ],
     );

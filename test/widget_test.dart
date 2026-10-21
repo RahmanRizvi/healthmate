@@ -85,6 +85,12 @@ class FakeHealthRecordRepository implements IHealthRecordRepository {
     records[record.date] = record;
     return 1;
   }
+
+  @override
+  Future<int> updateRecord(HealthRecord record) async {
+    records[record.date] = record;
+    return 1;
+  }
 }
 
 void main() {

@@ -2,61 +2,68 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/app_dimensions.dart';
 import '../../../core/widgets/bottom_navigation.dart';
 import '../../../core/widgets/healthmate_header.dart';
-import '../../../core/widgets/weekly_activity_chart.dart';
-import '../../../domain/services/health_record_service.dart';
+import '../../../core/widgets/record_summary_card.dart';
+import '../../../data/repositories/health_record_repository.dart';
+import '../../../domain/services/analytics_service.dart';
+import '../../../domain/services/insights_service.dart';
 import '../../../domain/services/onboarding_service.dart';
+import '../../dashboard/views/dashboard_screen.dart';
+import '../../records/views/add_record_screen.dart';
 import '../../records/views/records_screen.dart';
 import '../../settings/views/settings_screen.dart';
+import '../viewmodels/progress_viewmodel.dart';
+import '../widgets/daily_goal_completion_section.dart';
+import '../widgets/hydration_trend_chart.dart';
+import '../widgets/period_selector.dart';
+import '../widgets/progress_export_dialog.dart';
+import '../widgets/progress_insight_card.dart';
+import '../widgets/steps_activity_chart.dart';
+import '../widgets/view_all_records_card.dart';
+import '../widgets/wellness_tip_card.dart';
 
-/// Progress Screen showing weekly metrics, trends, and achievements.
-class ProgressScreen extends StatefulWidget {
-  const ProgressScreen({super.key});
+/// Progress & Analytics screen reproducing the Figma reference screenshot.
+class ProgressScreen extends StatelessWidget {
+  final ProgressViewModel? viewModel;
 
-  @override
-  State<ProgressScreen> createState() => _ProgressScreenState();
-}
+  const ProgressScreen({
+    super.key,
+    this.viewModel,
+  });
 
-class _ProgressScreenState extends State<ProgressScreen> {
-  WeeklyActivityData? _weeklyData;
-  int _totalSteps = 0;
-  int _averageSteps = 0;
-  bool _isLoading = true;
+  Future<void> _openAddRecord(BuildContext context, ProgressViewModel vm) async {
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => AddRecordScreen(
+          selectedDate: DateTime.now(),
+        ),
+      ),
+    );
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProgress();
-  }
-
-  Future<void> _loadProgress() async {
-    final recordService = context.read<HealthRecordService>();
-    final onboardingService = context.read<OnboardingService>();
-
-    final goals = await onboardingService.getGoals();
-    final stepGoal = goals?.stepsGoal ?? 10000;
-
-    final data = await recordService.getWeeklyActivityData(DateTime.now(), stepGoal);
-    setState(() {
-      _weeklyData = data;
-      _totalSteps = data.totalSteps;
-      _averageSteps = data.averageSteps;
-      _isLoading = false;
-    });
-  }
-
-  void _onBottomNavTap(int index) {
-    if (index == 2) return; // already in Progress
-
-    if (index == 0) {
-      Navigator.maybePop(context);
-      return;
+    if (result == true) {
+      await vm.loadProgress();
     }
+  }
+
+  void _navigateToRecords(BuildContext context, ProgressViewModel vm) async {
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const RecordsScreen()),
+    );
+  }
+
+  Future<void> _onBottomNavTap(
+    BuildContext context,
+    ProgressViewModel vm,
+    int index,
+  ) async {
+    if (index == 2) return; // already in Progress
 
     Widget screen;
     switch (index) {
+      case 0:
+        screen = const DashboardScreen();
+        break;
       case 1:
         screen = const RecordsScreen();
         break;
@@ -67,167 +74,182 @@ class _ProgressScreenState extends State<ProgressScreen> {
         return;
     }
 
-    Navigator.of(context).pushReplacement(
+    await Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => screen),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final numberFormat = NumberFormat('#,###');
-
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldBackground,
-      appBar: HealthMateHeader.detail(
-        title: 'Activity Progress',
-        onBackPressed: () => Navigator.maybePop(context),
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            )
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Weekly Performance',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.primaryDark,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'Track consistency across your daily wellness goals.',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  if (_weeklyData != null)
-                    WeeklyActivityChart(data: _weeklyData!),
-                  const SizedBox(height: 20),
-
-                  // 2x2 Metric Cards Grid
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildMetricCard(
-                          title: 'Total Steps',
-                          value: numberFormat.format(_totalSteps),
-                          unit: 'steps this week',
-                          icon: Icons.directions_walk_rounded,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _buildMetricCard(
-                          title: 'Daily Average',
-                          value: numberFormat.format(_averageSteps),
-                          unit: 'steps / day',
-                          icon: Icons.speed_rounded,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Achievement Note
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: AppColors.mintBadge,
-                      borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-                    ),
-                    child: Row(
-                      children: const [
-                        Icon(
-                          Icons.emoji_events_outlined,
-                          color: AppColors.primary,
-                          size: 28,
-                        ),
-                        SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            'Consistency is key! Every step and glass of water builds long-term vitality.',
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              color: AppColors.primaryDark,
-                              fontWeight: FontWeight.w600,
-                              height: 1.35,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-      bottomNavigationBar: HealthMateBottomNavigation(
-        currentIndex: 2,
-        onTap: _onBottomNavTap,
-      ),
-    );
+  void _showExportDialog(BuildContext context, ProgressViewModel vm) {
+    ProgressExportDialog.show(context, vm);
   }
 
-  Widget _buildMetricCard({
-    required String title,
-    required String value,
-    required String unit,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(18.0),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppDimensions.radiusXL),
-        border: Border.all(color: AppColors.border.withAlpha(160)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(6),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (ctx) =>
+          viewModel ??
+          ProgressViewModel(
+            analyticsService: ctx.read<AnalyticsService>(),
+            insightsService: ctx.read<InsightsService>(),
+            onboardingService: ctx.read<OnboardingService>(),
+            recordRepository: ctx.read<IHealthRecordRepository>(),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: AppColors.primary, size: 26),
-          const SizedBox(height: 12),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+      child: Consumer<ProgressViewModel>(
+        builder: (context, vm, _) {
+          final numberFormat = NumberFormat('#,###');
+
+          return Scaffold(
+            backgroundColor: AppColors.scaffoldBackground,
+            appBar: HealthMateHeader.dashboard(
+              onAddPressed: () => _openAddRecord(context, vm),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primaryDark,
+            body: vm.isLoading
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  )
+                : vm.errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.error_outline_rounded, size: 48, color: Colors.redAccent),
+                              const SizedBox(height: 12),
+                              Text(
+                                vm.errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(color: AppColors.textSecondary),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: vm.loadProgress,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryDark,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        color: AppColors.primary,
+                        onRefresh: vm.loadProgress,
+                        child: SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 14),
+
+                              // 1. Period Selector Header (Title, Subtitle, Date Range Badge, Week/Month Pills)
+                              PeriodSelectorHeader(
+                                selectedType: vm.periodType,
+                                dateBadgeLabel: vm.periodDateBadgeLabel,
+                                canGoNext: vm.canGoNext,
+                                onTypeChanged: vm.setPeriodType,
+                                onPrevious: vm.goToPreviousPeriod,
+                                onNext: vm.goToNextPeriod,
+                                onExport: () => _showExportDialog(context, vm),
+                              ),
+                              const SizedBox(height: 18),
+
+                              // 2. Three Analytics Summary Cards
+                              if (vm.analyticsData != null) ...[
+                                Row(
+                                  children: [
+                                    // Avg steps
+                                    Expanded(
+                                      child: RecordSummaryCard(
+                                        icon: Icons.directions_walk_rounded,
+                                        iconColor: AppColors.primary,
+                                        iconBgColor: const Color(0xFFD1FAE5),
+                                        value: numberFormat.format(vm.analyticsData!.summary.averageSteps),
+                                        label: 'Avg. steps/d',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+
+                                    // Avg calories
+                                    Expanded(
+                                      child: RecordSummaryCard(
+                                        icon: Icons.local_fire_department_rounded,
+                                        iconColor: const Color(0xFFEA580C),
+                                        iconBgColor: const Color(0xFFFFEDD5),
+                                        value: numberFormat.format(vm.analyticsData!.summary.averageCalories),
+                                        label: 'Avg. kcal/d',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+
+                                    // Avg water
+                                    Expanded(
+                                      child: RecordSummaryCard(
+                                        icon: Icons.water_drop_rounded,
+                                        iconColor: const Color(0xFF0F766E),
+                                        iconBgColor: const Color(0xFFCCFBF1),
+                                        value: vm.analyticsData!.summary.formattedAverageWaterLitres,
+                                        label: 'Avg. water/d',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 20),
+
+                                // 3. Steps Activity Card
+                                StepsActivityChart(
+                                  data: vm.analyticsData!,
+                                  selectedIndex: vm.selectedDayIndex,
+                                  onSelectDay: vm.selectDay,
+                                ),
+                                const SizedBox(height: 20),
+
+                                // 4. Daily Goal Completion Section
+                                DailyGoalCompletionSection(
+                                  data: vm.analyticsData!,
+                                ),
+                                const SizedBox(height: 20),
+
+                                // 5. Hydration Trend Chart
+                                HydrationTrendChart(
+                                  data: vm.analyticsData!,
+                                  selectedIndex: vm.selectedDayIndex,
+                                  onSelectDay: vm.selectDay,
+                                ),
+                                const SizedBox(height: 20),
+                              ],
+
+                              // 6. Personalized Insights Card
+                              if (vm.currentInsight != null) ...[
+                                ProgressInsightCard(insight: vm.currentInsight!),
+                                const SizedBox(height: 20),
+                              ],
+
+                              // 7. View All Records Card
+                              ViewAllRecordsCard(
+                                totalRecordsCount: vm.totalAllRecordsCount,
+                                onTap: () => _navigateToRecords(context, vm),
+                              ),
+                              const SizedBox(height: 16),
+
+                              // 8. Wellness Tip Card
+                              const WellnessTipCard(),
+                              const SizedBox(height: 24),
+                            ],
+                          ),
+                        ),
+                      ),
+            bottomNavigationBar: HealthMateBottomNavigation(
+              currentIndex: 2,
+              onTap: (index) => _onBottomNavTap(context, vm, index),
             ),
-          ),
-          Text(
-            unit,
-            style: const TextStyle(
-              fontSize: 11,
-              color: AppColors.textMuted,
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
