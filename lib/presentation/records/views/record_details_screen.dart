@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_dimensions.dart';
 import '../../../core/widgets/bottom_navigation.dart';
@@ -47,12 +48,14 @@ class RecordDetailsScreen extends StatelessWidget {
         return;
     }
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context)
+        .pushReplacement(MaterialPageRoute(builder: (_) => screen));
   }
 
-  Future<void> _handleEdit(BuildContext context, RecordDetailsViewModel vm) async {
+  Future<void> _handleEdit(
+    BuildContext context,
+    RecordDetailsViewModel vm,
+  ) async {
     final record = vm.record;
     if (record == null) return;
 
@@ -71,7 +74,10 @@ class RecordDetailsScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _handleDelete(BuildContext context, RecordDetailsViewModel vm) async {
+  Future<void> _handleDelete(
+    BuildContext context,
+    RecordDetailsViewModel vm,
+  ) async {
     final record = vm.record;
     if (record == null) return;
 
@@ -133,106 +139,115 @@ class RecordDetailsScreen extends StatelessWidget {
                     child: CircularProgressIndicator(color: AppColors.primary),
                   )
                 : vm.record == null
-                    ? Center(
-                        child: Text(
-                          vm.errorMessage ?? 'Record not found.',
-                          style: const TextStyle(color: AppColors.textSecondary),
+                ? Center(
+                    child: Text(
+                      vm.errorMessage ?? 'Record not found.',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20.0,
+                      vertical: 12.0,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // 1. Date Summary Card
+                        _buildDateSummaryCard(vm),
+                        const SizedBox(height: 16),
+
+                        // 2. Steps Walked Card
+                        _buildMetricCard(
+                          icon: Icons.directions_run_rounded,
+                          iconColor: AppColors.primary,
+                          title: 'Steps walked',
+                          goalLabel:
+                              'Goal: ${numberFormat.format(vm.goals.stepsGoal)}',
+                          value: numberFormat.format(vm.record!.steps),
+                          unit: 'steps',
+                          progressRatio: vm.stepsProgressRatio,
+                          progressColor: AppColors.primaryDark,
+                          leftSubtext:
+                              '${vm.stepsPercentage.toStringAsFixed(1)}% completed',
+                          rightSubtext:
+                              '${numberFormat.format(vm.remainingSteps)} steps remaining',
                         ),
-                      )
-                    : SingleChildScrollView(
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20.0,
-                          vertical: 12.0,
+                        const SizedBox(height: 16),
+
+                        // 3. Calories Burned Card
+                        _buildMetricCard(
+                          icon: Icons.local_fire_department_rounded,
+                          iconColor: const Color(0xFF047857),
+                          title: 'Calories burned',
+                          goalLabel:
+                              'Goal: ${numberFormat.format(vm.goals.caloriesGoalKcal)} kcal',
+                          value: numberFormat.format(vm.record!.calories),
+                          unit: 'kcal',
+                          progressRatio: vm.caloriesProgressRatio,
+                          progressColor: const Color(0xFF34D399),
+                          leftSubtext:
+                              '${vm.caloriesPercentage.round()}% of daily burn target',
+                          rightSubtext:
+                              '${numberFormat.format(vm.remainingCalories)} kcal remaining',
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // 1. Date Summary Card
-                            _buildDateSummaryCard(vm),
-                            const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                            // 2. Steps Walked Card
-                            _buildMetricCard(
-                              icon: Icons.directions_run_rounded,
-                              iconColor: AppColors.primary,
-                              title: 'Steps walked',
-                              goalLabel: 'Goal: ${numberFormat.format(vm.goals.stepsGoal)}',
-                              value: numberFormat.format(vm.record!.steps),
-                              unit: 'steps',
-                              progressRatio: vm.stepsProgressRatio,
-                              progressColor: AppColors.primaryDark,
-                              leftSubtext: '${vm.stepsPercentage.toStringAsFixed(1)}% completed',
-                              rightSubtext: '${numberFormat.format(vm.remainingSteps)} steps remaining',
-                            ),
-                            const SizedBox(height: 16),
+                        // 4. Water Intake Card
+                        _buildMetricCard(
+                          icon: Icons.water_drop_rounded,
+                          iconColor: const Color(0xFF0F766E),
+                          title: 'Water intake',
+                          goalLabel:
+                              'Goal: ${numberFormat.format(vm.goals.waterGoalMl)} ml',
+                          value: numberFormat.format(vm.record!.water),
+                          unit: 'ml',
+                          progressRatio: vm.waterProgressRatio,
+                          progressColor: const Color(0xFF0F766E),
+                          leftSubtext:
+                              '${vm.waterPercentage.round()}% of hydration target',
+                          rightSubtext:
+                              '${numberFormat.format(vm.remainingWater)} ml remaining',
+                        ),
+                        const SizedBox(height: 16),
 
-                            // 3. Calories Burned Card
-                            _buildMetricCard(
-                              icon: Icons.local_fire_department_rounded,
-                              iconColor: const Color(0xFF047857),
-                              title: 'Calories burned',
-                              goalLabel: 'Goal: ${numberFormat.format(vm.goals.caloriesGoalKcal)} kcal',
-                              value: numberFormat.format(vm.record!.calories),
-                              unit: 'kcal',
-                              progressRatio: vm.caloriesProgressRatio,
-                              progressColor: const Color(0xFF34D399),
-                              leftSubtext: '${vm.caloriesPercentage.round()}% of daily burn target',
-                              rightSubtext: '${numberFormat.format(vm.remainingCalories)} kcal remaining',
-                            ),
-                            const SizedBox(height: 16),
+                        // 5. Daily Progress Breakdown Card
+                        _buildDailyProgressCard(vm, numberFormat),
+                        const SizedBox(height: 24),
 
-                            // 4. Water Intake Card
-                            _buildMetricCard(
-                              icon: Icons.water_drop_rounded,
-                              iconColor: const Color(0xFF0F766E),
-                              title: 'Water intake',
-                              goalLabel: 'Goal: ${numberFormat.format(vm.goals.waterGoalMl)} ml',
-                              value: numberFormat.format(vm.record!.water),
-                              unit: 'ml',
-                              progressRatio: vm.waterProgressRatio,
-                              progressColor: const Color(0xFF0F766E),
-                              leftSubtext: '${vm.waterPercentage.round()}% of hydration target',
-                              rightSubtext: '${numberFormat.format(vm.remainingWater)} ml remaining',
-                            ),
-                            const SizedBox(height: 16),
+                        // 6. Action Buttons (Edit Record & Delete Record)
+                        _buildActionButtons(context, vm),
+                        const SizedBox(height: 20),
 
-                            // 5. Daily Progress Breakdown Card
-                            _buildDailyProgressCard(vm, numberFormat),
-                            const SizedBox(height: 24),
-
-                            // 6. Action Buttons (Edit Record & Delete Record)
-                            _buildActionButtons(context, vm),
-                            const SizedBox(height: 20),
-
-                            // 7. Record Metadata Timestamps
-                            Center(
-                              child: Column(
-                                children: [
-                                  Text(
-                                    vm.recordedAtTimestamp,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textMuted,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    vm.lastUpdatedTimestamp,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: AppColors.textMuted,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                ],
+                        // 7. Record Metadata Timestamps
+                        Center(
+                          child: Column(
+                            children: [
+                              Text(
+                                vm.recordedAtTimestamp,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 24),
-                          ],
+                              const SizedBox(height: 3),
+                              Text(
+                                vm.lastUpdatedTimestamp,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                        const SizedBox(height: 24),
+                      ],
+                    ),
+                  ),
             bottomNavigationBar: HealthMateBottomNavigation(
               currentIndex: 1,
               onTap: (index) => _onBottomNavTap(context, index),
@@ -313,7 +328,10 @@ class RecordDetailsScreen extends StatelessWidget {
             children: [
               // Daily summary pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10.0,
+                  vertical: 5.0,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F3),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusPill),
@@ -321,11 +339,7 @@ class RecordDetailsScreen extends StatelessWidget {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.eco_rounded,
-                      color: AppColors.primary,
-                      size: 14,
-                    ),
+                    Icon(Icons.eco_rounded, color: AppColors.primary, size: 14),
                     SizedBox(width: 5),
                     Text(
                       'Daily summary',
@@ -342,7 +356,10 @@ class RecordDetailsScreen extends StatelessWidget {
 
               // Goals on track pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10.0,
+                  vertical: 5.0,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF1F5F3),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusPill),
@@ -415,11 +432,7 @@ class RecordDetailsScreen extends StatelessWidget {
                   color: const Color(0xFFD1FAE5),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 20,
-                ),
+                child: Icon(icon, color: iconColor, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -433,7 +446,10 @@ class RecordDetailsScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusPill),
@@ -522,7 +538,10 @@ class RecordDetailsScreen extends StatelessWidget {
   }
 
   // ================= 5. Daily Progress Breakdown Card =================
-  Widget _buildDailyProgressCard(RecordDetailsViewModel vm, NumberFormat numberFormat) {
+  Widget _buildDailyProgressCard(
+    RecordDetailsViewModel vm,
+    NumberFormat numberFormat,
+  ) {
     final record = vm.record!;
     final stepsRatio = vm.stepsProgressRatio;
     final calRatio = vm.caloriesProgressRatio;
@@ -559,7 +578,10 @@ class RecordDetailsScreen extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFCCFBEF),
                   borderRadius: BorderRadius.circular(AppDimensions.radiusPill),
@@ -581,7 +603,8 @@ class RecordDetailsScreen extends StatelessWidget {
           _buildProgressItem(
             icon: Icons.directions_run_rounded,
             iconColor: AppColors.primary,
-            label: 'Steps (${numberFormat.format(record.steps)} / ${numberFormat.format(vm.goals.stepsGoal)})',
+            label:
+                'Steps (${numberFormat.format(record.steps)} / ${numberFormat.format(vm.goals.stepsGoal)})',
             percentage: '${(stepsRatio * 100).round()}%',
             progressRatio: stepsRatio,
             progressColor: AppColors.primaryDark,
@@ -592,7 +615,8 @@ class RecordDetailsScreen extends StatelessWidget {
           _buildProgressItem(
             icon: Icons.local_fire_department_rounded,
             iconColor: const Color(0xFF047857),
-            label: 'Calories (${numberFormat.format(record.calories)} / ${numberFormat.format(vm.goals.caloriesGoalKcal)} kcal)',
+            label:
+                'Calories (${numberFormat.format(record.calories)} / ${numberFormat.format(vm.goals.caloriesGoalKcal)} kcal)',
             percentage: '${(calRatio * 100).round()}%',
             progressRatio: calRatio,
             progressColor: const Color(0xFF34D399),
@@ -603,7 +627,8 @@ class RecordDetailsScreen extends StatelessWidget {
           _buildProgressItem(
             icon: Icons.water_drop_rounded,
             iconColor: const Color(0xFF0F766E),
-            label: 'Water (${numberFormat.format(record.water)} / ${numberFormat.format(vm.goals.waterGoalMl)} ml)',
+            label:
+                'Water (${numberFormat.format(record.water)} / ${numberFormat.format(vm.goals.waterGoalMl)} ml)',
             percentage: '${(waterRatio * 100).round()}%',
             progressRatio: waterRatio,
             progressColor: const Color(0xFF0F766E),
@@ -684,10 +709,7 @@ class RecordDetailsScreen extends StatelessWidget {
             icon: const Icon(Icons.edit_outlined, size: 19),
             label: const Text(
               'Edit Record',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryDark,
@@ -710,10 +732,7 @@ class RecordDetailsScreen extends StatelessWidget {
             icon: const Icon(Icons.delete_outline_rounded, size: 20),
             label: const Text(
               'Delete Record',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFEE2E2),
